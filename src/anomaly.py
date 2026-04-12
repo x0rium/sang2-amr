@@ -167,21 +167,31 @@ def scan_sequence(
         h3_diff = abs(results[i].scores.get("h3", 0) - results[i - 1].scores.get("h3", 0))
         results[i].scores["gradient"] = gc_diff + h3_diff
 
-    # Dual-track composite: base signals + resonance signals scored independently.
-    # Final composite = max(base, resonance-enhanced). This way resonance can
-    # only BOOST a score, never dilute strong base signals.
-    base_signals = ["gc", "h3", "hurst", "ac3", "mi1", "c2", "rho", "gradient"]
-    resonance_signals = ["cpd", "rscu_d", "codon_mi"]
+    # TWO-TRACK SCORING: geometric resonance + rank fusion.
+    # Each catches different anomaly patterns:
+    #   Geometric: "everything slightly off" → recent HGT from distant organism
+    #   Rank fusion: "one signal screaming" → close-relative gene with one extreme feature
+    # Final score = best of both tracks.
+    all_signal_names = [
+        "gc", "h3", "hurst", "ac3", "mi1", "c2", "rho", "gradient",
+        "cpd", "rscu_d", "codon_mi",
+    ]
 
-    all_signal_names = base_signals + resonance_signals
-
-    # RANK FUSION: for each signal, rank windows independently.
-    # Composite = mean of top-3 percentile ranks (not just best single rank).
-    # This requires ≥2-3 strong signals, filtering single-signal noise.
     n_total = len(results)
     if n_total == 0:
         return results
 
+    # --- Track A: Geometric mean (SANG2 resonance philosophy) ---
+    # All signals must contribute. Low values drag score down.
+    # Catches: broadly anomalous regions.
+    for r in results:
+        z_vals = np.array([r.scores.get(s, 0.01) for s in all_signal_names])
+        z_vals = np.clip(z_vals, 0.01, None)
+        r.scores["_geomean"] = float(np.exp(np.log(z_vals).mean()))
+
+    # --- Track B: Rank fusion (top-3 mean rank) ---
+    # Each signal votes independently. One strong signal enough.
+    # Catches: one-signal-dominant anomalies.
     n_signals = len(all_signal_names)
     rank_matrix = np.zeros((n_total, n_signals), dtype=np.float64)
     for j, sig_name in enumerate(all_signal_names):
@@ -191,19 +201,35 @@ def scan_sequence(
         ranks[order] = np.arange(1, n_total + 1, dtype=np.float64)
         rank_matrix[:, j] = ranks
 
-    # Composite = mean of top-3 best ranks (require multiple signal support)
     top_k = min(3, n_signals)
     for i, r in enumerate(results):
         sorted_ranks = np.sort(rank_matrix[i])
         mean_top3 = float(sorted_ranks[:top_k].mean())
-        r.composite = n_total / mean_top3  # higher = better
+        r.scores["_rankfusion"] = n_total / mean_top3
 
-    # Deduplicate overlapping windows: merge windows within step distance,
-    # keep the one with highest composite
+    # --- Combine: best of both tracks ---
+    # Normalize both to same scale (percentile rank within each track)
+    geomeans = np.array([r.scores["_geomean"] for r in results])
+    rankfusions = np.array([r.scores["_rankfusion"] for r in results])
+
+    geo_order = np.argsort(-geomeans)
+    geo_ranks = np.empty_like(geo_order, dtype=np.float64)
+    geo_ranks[geo_order] = np.arange(1, n_total + 1, dtype=np.float64)
+
+    rf_order = np.argsort(-rankfusions)
+    rf_ranks = np.empty_like(rf_order, dtype=np.float64)
+    rf_ranks[rf_order] = np.arange(1, n_total + 1, dtype=np.float64)
+
+    for i, r in enumerate(results):
+        best_rank = min(geo_ranks[i], rf_ranks[i])
+        r.composite = n_total / best_rank  # higher = better
+        r.scores["_track"] = "geometric" if geo_ranks[i] <= rf_ranks[i] else "rankfusion"
+
+    # Deduplicate overlapping windows
     results.sort(key=lambda w: -w.composite)
     deduped: list[WindowScore] = []
     used_positions: set[int] = set()
-    merge_distance = step * 2  # windows closer than this are "same region"
+    merge_distance = step * 2
     for w in results:
         center = (w.start + w.end) // 2
         is_dup = any(abs(center - p) < merge_distance for p in used_positions)
@@ -212,6 +238,3 @@ def scan_sequence(
             used_positions.add(center)
 
     return deduped
-
-    results.sort(key=lambda w: -w.composite)
-    return results
