@@ -39,14 +39,18 @@ Tested on 6 real AMR genes across 5 plasmids, zero prior knowledge:
 
 \* Gene compositionally similar to host — requires cross-reference (Mode B/C) for detection.
 
-**Novel candidate pipeline tested end-to-end:**
-On K. pneumoniae HU105 draft genome (5.1 Mb, 36 contigs) with same-species baseline:
-SANG2 flagged 5 hypothetical proteins (AMR-motif similarity 0.31–0.57) →
-BLAST rejected 4/5 (known non-AMR) → ESMFold confirmed 1/5 as well-folded (pLDDT=76) →
-Foldseek identified tegument-like fold (not AMR).
-Result: 0 confirmed novel AMR. Honest — the genome had no unexplained resistance.
-The pipeline (SANG2 → BLAST → structure) works as designed; needs genomes with
-phenotypic resistance but no known genetic explanation.
+**Unexplained resistance test (the real validation):**
+K. pneumoniae KPN1041ec — lab-confirmed meropenem-RESISTANT, but CARD/PATRIC
+found NO known carbapenemase (no KPC, NDM, VIM, OXA-48). From BV-BRC database.
+
+Pipeline: SANG2 scan (same-species baseline) → 9 top candidates → BLAST →
+4 hypothetical/uncharacterized proteins → ESMFold → 1 well-folded (pLDDT=73,
+326 AA) + 3 disordered → Foldseek → unknown fold (no AMR match, no non-AMR match).
+
+**Result: 5.3 Mb genome narrowed to 1 candidate gene (326 AA) with unknown function.**
+Not confirmed as AMR in silico — requires wet lab (clone, express, measure MIC).
+This is exactly what the tool is designed for: narrow the search space for
+experimentalists from thousands of genes to one.
 
 ## How it works
 
