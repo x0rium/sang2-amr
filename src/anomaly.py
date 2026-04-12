@@ -33,7 +33,6 @@ from signals import (
     codon_pair_profile, codon_pair_distance, codon_mi_profile,
 )
 from genome_signals import rscu, codon_bias_distance
-from aa_resonance import scan_window_aa
 
 
 def compute_host_baseline(
@@ -57,7 +56,7 @@ def compute_host_baseline(
     collectors: dict[str, list[float]] = {
         "gc": [], "h3": [], "hurst": [], "ac3": [],
         "mi1": [], "c2": [], "cpd": [], "rscu_d": [], "codon_mi": [],
-        "aa_amr": [], "rho_raw": [],
+        "rho_raw": [],
     }
 
     # Global host profiles for codon-level comparison
@@ -76,7 +75,6 @@ def compute_host_baseline(
         collectors["cpd"].append(codon_pair_distance(seg, host_cp_ref))
         collectors["rscu_d"].append(codon_bias_distance(seg, host_rscu_ref))
         collectors["codon_mi"].append(codon_mi_profile(seg))
-        collectors["aa_amr"].append(scan_window_aa(seg, min_aa=60, top_n=100))
         collectors["rho_raw"].append(rho_distance(seg, rho_vector(host_seq)))
 
     baseline: dict = {}
@@ -155,11 +153,6 @@ def scan_sequence(
         cmi_mean, cmi_std = baseline["codon_mi"]
         z_scores["codon_mi"] = abs(cmi_val - cmi_mean) / cmi_std
 
-        # AA-level AMR resonance score (function detection)
-        aa_val = scan_window_aa(seg, min_aa=60, top_n=100)
-        aa_mean, aa_std = baseline["aa_amr"]
-        z_scores["aa_amr"] = abs(aa_val - aa_mean) / aa_std
-
         # Gradient placeholder (post-pass)
         z_scores["gradient"] = 0.0
 
@@ -178,7 +171,7 @@ def scan_sequence(
     # Final composite = max(base, resonance-enhanced). This way resonance can
     # only BOOST a score, never dilute strong base signals.
     base_signals = ["gc", "h3", "hurst", "ac3", "mi1", "c2", "rho", "gradient"]
-    resonance_signals = ["cpd", "rscu_d", "codon_mi", "aa_amr"]
+    resonance_signals = ["cpd", "rscu_d", "codon_mi"]
 
     all_signal_names = base_signals + resonance_signals
 
