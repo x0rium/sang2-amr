@@ -39,9 +39,14 @@ Tested on 6 real AMR genes across 5 plasmids, zero prior knowledge:
 
 \* Gene compositionally similar to host — requires cross-reference (Mode B/C) for detection.
 
-**Novel discovery:** On a real K. pneumoniae draft genome (HU105), found 5 hypothetical
-proteins with high AMR-motif similarity (0.31–0.57) near efflux pumps and ATPases.
-None are in CARD. RGI would not find them.
+**Novel candidate pipeline tested end-to-end:**
+On K. pneumoniae HU105 draft genome (5.1 Mb, 36 contigs) with same-species baseline:
+SANG2 flagged 5 hypothetical proteins (AMR-motif similarity 0.31–0.57) →
+BLAST rejected 4/5 (known non-AMR) → ESMFold confirmed 1/5 as well-folded (pLDDT=76) →
+Foldseek identified tegument-like fold (not AMR).
+Result: 0 confirmed novel AMR. Honest — the genome had no unexplained resistance.
+The pipeline (SANG2 → BLAST → structure) works as designed; needs genomes with
+phenotypic resistance but no known genetic explanation.
 
 ## How it works
 
@@ -189,8 +194,14 @@ extreme values when alphabet size ≤ 20 (4 nucleotides vs 256 bytes).
   Suitable for screening, not diagnostics.
 - **AA-resonance profile covers β-lactamases only.** Other AMR families
   (aminoglycosides, tetracyclines, efflux) need additional profiles.
+  Profile generates false positives on ATPases, recombinases, acyltransferases
+  (proteins sharing general motifs with β-lactamases).
 - **Same-species baseline required.** Cross-species comparison flags species
-  differences, not AMR.
+  differences, not AMR. Demonstrated: E. coli baseline on K. pneumoniae →
+  top hits are species-specific genes, not AMR.
+- **Not validated on unexplained resistance.** The key experiment — finding
+  novel AMR in genomes where RGI fails — requires phenotypically resistant
+  isolates with no known genetic explanation (PATRIC/BV-BRC data).
 
 ## Upstream
 
