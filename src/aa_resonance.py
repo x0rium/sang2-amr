@@ -14,7 +14,7 @@ all found ab initio on 114 β-lactamases vs 80 kinases.
 from __future__ import annotations
 
 import numpy as np
-import pickle
+import json
 from pathlib import Path
 
 AA_ALPHABET = "ACDEFGHIKLMNPQRSTVWY"
@@ -40,15 +40,24 @@ CODON_TABLE = {
 NT_CHARS = "ACGT"
 
 _PROFILE_CACHE: list | None = None
-_PROFILE_PATH = Path(__file__).parent / "amr_profile.pkl"
+_PROFILE_PATH = Path(__file__).parent / "amr_profile.json"
 
 
 def _load_profile() -> list:
-    """Load AMR resonance profile (discriminative AA-pairs)."""
+    """Load AMR resonance profile (discriminative AA-pairs).
+
+    Format: list of [b1, b2, k, delta_R, R_bl, R_ctrl, P] arrays.
+    Converted to list of ((b1, b2, k), {'delta_R': ..., ...}) for compat.
+    """
     global _PROFILE_CACHE
     if _PROFILE_CACHE is None:
-        with open(_PROFILE_PATH, "rb") as f:
-            _PROFILE_CACHE = pickle.load(f)
+        with open(_PROFILE_PATH) as f:
+            raw = json.load(f)
+        _PROFILE_CACHE = [
+            ((e[0], e[1], e[2]),
+             {"delta_R": e[3], "R_bl": e[4], "R_ctrl": e[5], "P": e[6]})
+            for e in raw
+        ]
     return _PROFILE_CACHE
 
 
