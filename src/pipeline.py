@@ -60,7 +60,9 @@ def _windows_to_candidates(
     candidates = []
     for w in windows[:top_n]:
         evidence = []
-        for sig_name, z_val in sorted(w.scores.items(), key=lambda x: -x[1]):
+        numeric = {k: v for k, v in w.scores.items()
+                   if not k.startswith("_") and isinstance(v, (int, float))}
+        for sig_name, z_val in sorted(numeric.items(), key=lambda x: -x[1]):
             if z_val > 1.5:
                 evidence.append(f"{sig_name}: z={z_val:.1f}")
 
@@ -88,11 +90,16 @@ def run_single_isolate(
     window: int = 2000,
     step: int = 500,
     top_n: int = 20,
+    two_channel: bool = False,
 ) -> list[AMRCandidate]:
     """Mode A: Find anomalous regions on a single genome/plasmid.
 
     If host_contigs provided, uses them as baseline.
     Otherwise, uses the target itself as baseline (self-comparison).
+
+    two_channel adds the PRISM structural channel (prism_channel/two_channel),
+    soft-fused with composition. Reaches host-adapted genes (CTX-M/OXA) that
+    composition alone misses (exploration/010-013). No-op if PRISM unavailable.
     """
     # Build host baseline
     if host_contigs:
@@ -102,13 +109,18 @@ def run_single_isolate(
 
     baseline = compute_host_baseline(host_seq, window=window, step=window)
 
+    if two_channel:
+        from two_channel import scan_sequence_two_channel as _scan
+    else:
+        _scan = scan_sequence
+
     # Scan each target contig
     all_candidates: list[AMRCandidate] = []
     for contig in target_contigs:
         seq = contig_to_array(contig)
         if len(seq) < window:
             continue
-        windows = scan_sequence(seq, baseline, window=window, step=step)
+        windows = _scan(seq, baseline, window=window, step=step)
         windows = apply_context_boost(windows)
         candidates = _windows_to_candidates(windows, contig.id, top_n=top_n)
         all_candidates.extend(candidates)

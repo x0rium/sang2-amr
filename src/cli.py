@@ -31,7 +31,13 @@ def cmd_scan(args):
         window=args.window,
         step=args.step,
         top_n=args.top,
+        two_channel=args.two_channel,
     )
+    if args.two_channel:
+        import prism_channel
+        if not prism_channel.available():
+            print("warning: --two-channel requested but PRISM/sang not found; "
+                  "scored with composition only.", file=sys.stderr)
 
     output = _format(candidates, args.format)
     if args.output:
@@ -83,6 +89,8 @@ def main():
     p_scan.add_argument("--window", type=int, default=2000, help="Window size (bp)")
     p_scan.add_argument("--step", type=int, default=500, help="Step size (bp)")
     p_scan.add_argument("--top", type=int, default=20, help="Top N candidates")
+    p_scan.add_argument("--two-channel", action="store_true",
+                        help="Add PRISM structural channel (reaches host-adapted genes)")
     p_scan.add_argument("--format", choices=["text", "json", "tsv"], default="text")
     p_scan.add_argument("-o", "--output", help="Output file")
     p_scan.set_defaults(func=cmd_scan)
